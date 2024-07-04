@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image Resizer, Cropper, and Filter</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+      integrity="sha512-Fo3rlrZj/k7ujTnHg4CGR2D7kSs0v4LLanwESw6jM8Q30kzD6V9k0k3r3klF7u3OXPr/yblW2W7NzhN3fpAS3w=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <style>
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        margin: 0;
+        background-color: #f0f0f0;
+        font-family: Arial, sans-serif;
+      }
+
+      .drop-zone {
+        width: 600px;
+        height: 400px;
+        border: 2px dashed #007bff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        color: #007bff;
+        cursor: pointer;
+        margin-bottom: 20px;
+        transition: background-color 0.3s, color 0.3s;
+      }
+
+      .drop-zone.dragover {
+        background-color: #007bff;
+        color: white;
+      }
+
+      .container {
+        position: relative;
+        width: 600px;
+        height: 400px;
+        margin-bottom: 20px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        background-color: #fff;
+        border-radius: 10px;
+        overflow: hidden;
+        display: none; /* Hide initially */
+      }
+
+      #image {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+
+      .selection {
+        position: absolute;
+        border: 2px dashed #555;
+        display: none;
+        cursor: move;
+        border-radius: 4px;
+      }
+
+      .handle {
+        width: 10px;
+        height: 10px;
+        background-color: #555;
+        position: absolute;
+        border-radius: 50%;
+      }
+
+      .handle.top-left {
+        top: -5px;
+        left: -5px;
+        cursor: nwse-resize;
+      }
+
+      .handle.top-right {
+        top: -5px;
+        right: -5px;
+        cursor: nesw-resize;
+      }
+
+      .handle.bottom-left {
+        bottom: -5px;
+        left: -5px;
+        cursor: nesw-resize;
+      }
+
+      .handle.bottom-right {
+        bottom: -5px;
+        right: -5px;
+        cursor: nwse-resize;
+      }
+
+      .controls-container {
+        overflow-x: auto;
+        white-space: nowrap;
+        width: 100%;
+        max-width: 620px;
+        margin-bottom: 20px;
+        display: none; /* Hide initially */
+      }
+
+      #controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: nowrap;
+      }
+
+      #controls button,
+      #controls input[type="range"] {
+        padding: 10px;
+        border: none;
+        background-color: #007bff;
+        color: white;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+        min-width: 100px;
+      }
+
+      #controls button:hover,
+      #controls input[type="range"]:hover {
+        background-color: #0056b3;
+      }
+
+      #controls label {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      #controls label span {
+        margin-bottom: 5px;
+      }
+
+      #preview {
+        margin-bottom: 20px;
+        display: none; /* Hide initially */
+      }
+
+      #preview img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .filters-container {
+        overflow-x: auto;
+        white-space: nowrap;
+        width: 100%;
+        max-width: 620px;
+        margin-bottom: 20px;
+        display: none; /* Hide initially */
+      }
+
+      .filters {
+        display: inline-flex;
+        gap: 10px;
+      }
+
+      .filter {
+        text-align: center;
+        display: inline-block;
+        margin-right: 10px; /* Add space between filter buttons */
+      }
+
+      .filter img {
+        width: 100px;
+        height: 100px;
+        object-fit: cover;
+        cursor: pointer;
+        border-radius: 10px;
+        box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s, box-shadow 0.3s;
+      }
+
+      .filter img:hover {
+        transform: scale(1.1);
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      }
+
+      .fa {
+        margin-right: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="drop-zone" id="drop-zone">
+      Drag & Drop your image here or click to browse
+    </div>
+    <div class="container">
+      <img id="image" crossorigin="anonymous" alt="Image to resize" />
+      <div id="selection" class="selection">
+        <div class="handle top-left"></div>
+        <div class="handle top-right"></div>
+        <div class="handle bottom-left"></div>
+        <div class="handle bottom-right"></div>
+      </div>
+    </div>
+    <div class="controls-container">
+      <div id="controls">
+        <button id="crop-btn"><i class="fa fa-cut"></i>Crop</button>
+        <button id="reset-btn"><i class="fa fa-undo"></i>Reset</button>
+        <button id="clear-filter-btn">
+          <i class="fa fa-eraser"></i>Clear Filter
+        </button>
+        <button id="clear-btn"><i class="fa fa-times"></i>Clear Image</button>
+        <button id="flip-h-btn">
+          <i class="fa fa-arrows-alt-h"></i>Flip Horizontal
+        </button>
+        <button id="flip-v-btn">
+          <i class="fa fa-arrows-alt-v"></i>Flip Vertical
+        </button>
+        <button id="rotate-left-btn">
+          <i class="fa fa-undo"></i>Rotate Left
+        </button>
+        <button id="rotate-right-btn">
+          <i class="fa fa-redo"></i>Rotate Right
+        </button>
+        <label
+          ><span><i class="fa fa-adjust"></i>Blur</span>
+          <input type="range" id="blur-range" min="0" max="10" step="0.1" />
+        </label>
+        <label
+          ><span><i class="fa fa-adjust"></i>Contrast</span>
+          <input type="range" id="contrast-range" min="50" max="200" step="1" />
+        </label>
+        <label
+          ><span><i class="fa fa-adjust"></i>Brightness</span>
+          <input
+            type="range"
+            id="brightness-range"
+            min="50"
+            max="200"
+            step="1"
+          />
+        </label>
+        <label
+          ><span><i class="fa fa-adjust"></i>Saturation</span>
+          <input
+            type="range"
+            id="saturation-range"
+            min="0"
+            max="200"
+            step="1"
+          />
+        </label>
+        <label
+          ><span><i class="fa fa-adjust"></i>Hue Rotation</span>
+          <input
+            type="range"
+            id="hue-rotate-range"
+            min="0"
+            max="360"
+            step="1"
+          />
+        </label>
+      </div>
+    </div>
+    <div id="preview">
+      <h3>Cropped Image:</h3>
+      <img id="cropped-image" alt="Cropped Preview" />
+    </div>
+    <h3 id="filters-title" style="display: none">Filters:</h3>
+    <div class="filters-container">
+      <div class="filters" id="filters">
+        <!-- Filter previews will be added here by JavaScript -->
+      </div>
+    </div>
+    <script src="script.js"></script>
+  </body>
+</html>
